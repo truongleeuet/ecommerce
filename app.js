@@ -10,9 +10,12 @@ const flash = require('connect-flash');
 const passport = require('passport');
 const mongoStore = require('connect-mongo/es5')(session);
 const User = require('./models/user');
+const Category = require('./models/category');
 const app = express();
 const mainRoute = require('./routes/main');
 const userRoute = require('./routes/user');
+const adminRoute = require('./routes/admin');
+const apiRouter = require('./api/api');
 const secret = require('./config/secret');
 
 mongoose.connect(secret.database, (err) => {
@@ -41,13 +44,23 @@ app.use(passport.session());
 app.use(function(req, res, next) {
     res.locals.user = req.user;
     next();
-})
+});
+
+app.use((req, res, next) => {
+   Category.find({}, function(err, categories) {
+        if (err) return next(err);
+
+        res.locals.categories = categories;
+        next();
+   })
+});
 app.engine('ejs', engine);
 app.set('view engine', 'ejs');
 
 app.use(mainRoute);
 app.use(userRoute);
-
+app.use(adminRoute);
+app.use('/api', apiRouter);
 
 app.listen(secret.port, (err) => {
     console.log('Server listening port ', secret.port);
