@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const async = require('async');
 const User = require('../models/user');
 const passport = require('passport');
 const passportConf = require('../config/passport');
@@ -29,32 +30,42 @@ router.get('/signup', (req, res, next) => {
     });
 })
 router.post('/signup', function (req, res, next) {
-    var user = new User();
+    async.waterfall([function(callback) {
+        var user = new User();
 
-    user.profile.name = req.body.name;
-    user.email = req.body.email;
-    user.password = req.body.password;
-    user.profile.picture = user.gravatar();
+        user.profile.name = req.body.name;
+        user.email = req.body.email;
+        user.password = req.body.password;
+        user.profile.picture = user.gravatar();
 
-    User.findOne({email: req.body.email}, function (err, exitsUser) {
-        if (exitsUser) {
-            req.flash('errors', 'Account with that email adress already exists');
-            // console.log('Email ' + req.body.email + ' is already exist');
-            return res.redirect('/signup');
-        } else {
-            user.save(function (err) {
-                if (err) next(err);
-                // res.json('Successfully created new user');
-                req.logIn(user, function(err) {
+        User.findOne({email: req.body.email}, function (err, exitsUser) {
+            if (exitsUser) {
+                req.flash('errors', 'Account with that email adress already exists');
+                // console.log('Email ' + req.body.email + ' is already exist');
+                return res.redirect('/signup');
+            } else {
+                user.save(function (err) {
                     if (err) next(err);
-                    res.redirect('/profile');
-                })
+                    // res.json('Successfully created new user');
+                    req.logIn(user, function(err) {
+                        if (err) next(err);
+                        res.redirect('/profile');
+                    })
 
-            })
-        }
+                })
+            }
+        })
+    }, function(user) {
+
+    }], function(err) {
+
     })
+
 });
 
+function saveUser(req, res, next) {
+    return new Promise()
+}
 router.get('/logout', (req, res, next) => {
     req.logout();
     res.redirect('/');

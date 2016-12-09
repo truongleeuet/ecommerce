@@ -16,4 +16,26 @@
 
         <a href="/edit-profile" class="btn btn-primary btn-lg">Edit Profile</a>
     </div>
+
+    <div class="col-md-6">
+        <h2 class="text-center">History</h2>
+
+        <table class="table table-striped sticky-header">
+            <thead>
+            <tr>
+                <th>Items's Name</th>
+                <th>Paid: </th>
+            </tr>
+            </thead>
+
+            <tbody>
+                <% for(var i = 0, len = user.history.length; i < len; i++) { %>
+                    <tr>
+                        <td><%= user.history[i].item.name %></td>
+                        <td><%= user.history[i].paid %></td>
+                    </tr>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
 </div>
