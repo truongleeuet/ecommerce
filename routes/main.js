@@ -48,6 +48,31 @@ stream.on('close', function() {
 stream.on('error', function(err) {
     console.log(err);
 });
+router.get('/cart', (req, res, next) => {
+    Cart.findOne({ owner: req.user._id})
+        .populate('items.item')
+        .exec(function(err, foundCart) {
+            res.render('main/cart', {
+                cart: foundCart
+            })
+        })
+})
+router.post('/product/:product_id', function(req, res, next) {
+    Cart.findOne({ owner: req.user._id}, function(err, cart) {
+        cart.items.push({
+            item: res.body.product_id,
+            price: parseFloat(req.body.price),
+            quantity: parseInt(req.body.quantity)
+        });
+
+        cart.total = (cart.total + parseFloat(req.body.priceValue)).toFixed(2);
+
+        cart.save(function(err) {
+            if (err) return next(err);
+            return res.redirect('/cart');
+        })
+    })
+});
 
 router.post('/search', function(req, res, next) {
     console.log(req.body.q);
