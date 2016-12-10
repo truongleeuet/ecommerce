@@ -17,6 +17,7 @@ const userRoute = require('./routes/user');
 const adminRoute = require('./routes/admin');
 const apiRouter = require('./api/api');
 const secret = require('./config/secret');
+const cartLength = require('./middleware/middleware');
 
 mongoose.connect(secret.database, (err) => {
     if (err) {
@@ -46,6 +47,7 @@ app.use(function(req, res, next) {
     next();
 });
 
+app.use(cartLength);
 app.use((req, res, next) => {
    Category.find({}, function(err, categories) {
         if (err) return next(err);

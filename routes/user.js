@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const async = require('async');
 const User = require('../models/user');
+const Cart = require('../models/cart');
 const passport = require('passport');
 const passportConf = require('../config/passport');
 
@@ -38,25 +39,28 @@ router.post('/signup', function (req, res, next) {
         user.password = req.body.password;
         user.profile.picture = user.gravatar();
 
-        User.findOne({email: req.body.email}, function (err, exitsUser) {
-            if (exitsUser) {
+        User.findOne({email: req.body.email}, function (err, exsitingUser) {
+            if (exsitingUser) {
                 req.flash('errors', 'Account with that email adress already exists');
                 // console.log('Email ' + req.body.email + ' is already exist');
                 return res.redirect('/signup');
             } else {
-                user.save(function (err) {
+                user.save(function (err, user) {
                     if (err) next(err);
-                    // res.json('Successfully created new user');
-                    req.logIn(user, function(err) {
-                        if (err) next(err);
-                        res.redirect('/profile');
-                    })
-
+                    callback(null, user);
                 })
             }
         })
     }, function(user) {
-
+        var cart = new Cart();
+        cart.owner = user._id;
+        cart.save(function(err) {
+            if (err) return next(err);
+            req.logIn(user, function(err) {
+                if (err) return next(err);
+                res.redirect('/profile');
+            })
+        })
     }], function(err) {
 
     })
