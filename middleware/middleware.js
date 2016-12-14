@@ -7,7 +7,7 @@ module.exports = function(req, res, next) {
             if (err) return next(err);
             if (cart) {
                 for (var i = 0, len = cart.items.length; i < len; i++) {
-                    total += cart.items[i].quatity;
+                    total += cart.items[i].quantity;
                 }
 
                 res.locals.cart = total;

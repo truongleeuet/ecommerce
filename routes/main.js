@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const User = require('../models/user');
 const Product = require('../models/product');
-
+const Cart = require('../models/cart');
+const stripe = require('stripe')('sk_test_PvsX9DqDoUYk7PUXlLpj3a88');
 
 function paginate(req, res, next) {
     var perPage= 9;
@@ -53,20 +54,23 @@ router.get('/cart', (req, res, next) => {
         .populate('items.item')
         .exec(function(err, foundCart) {
             res.render('main/cart', {
-                cart: foundCart
+                foundCart: foundCart,
+                message: req.flash('remove')
             })
         })
 })
 router.post('/product/:product_id', function(req, res, next) {
     Cart.findOne({ owner: req.user._id}, function(err, cart) {
+
+        console.log(req.body.product_id, req.body.price, req.body.quantity)
         cart.items.push({
-            item: res.body.product_id,
-            price: parseFloat(req.body.price),
+            item: req.body.product_id,
+            price: parseFloat(req.body.priceValue),
             quantity: parseInt(req.body.quantity)
         });
 
         cart.total = (cart.total + parseFloat(req.body.priceValue)).toFixed(2);
-
+        console.log(cart.total);
         cart.save(function(err) {
             if (err) return next(err);
             return res.redirect('/cart');
@@ -74,6 +78,20 @@ router.post('/product/:product_id', function(req, res, next) {
     })
 });
 
+
+router.post('/remove', function(req, res, next) {
+   Cart.findOne({ owner: req.user._id}, function(err, foundCart) {
+       foundCart.items.pull(String(req.body.item));
+
+       foundCart.total = (foundCart.total - parseFloat(req.body.price)).toFixed(2);
+       foundCart.save(function(err, found) {
+           if (err) return next(err);
+
+           req.flash('remove', 'Successfully removed');
+           res.redirect('/cart');
+       })
+   })
+});
 router.post('/search', function(req, res, next) {
     console.log(req.body.q);
     res.redirect('/search?q=' + req.body.q);
@@ -135,4 +153,18 @@ router.get('/product/:id', (req, res, next) => {
     })
 })
 
+
+router.post('/payment', function(req, res, next) {
+    var stripeToken = req.body.stripeToken;
+    var currentCharges = Math.round(req.body.stripeMoney * 100)
+    stripe.customers.create({
+        source: stripeToken,
+    }).then(function(customer) {
+        return stripe.charges.create({
+            amount: currentCharges,
+            currecy: 'usd',
+            customer: customer.id
+        })
+    })
+})
 module.exports = router;
