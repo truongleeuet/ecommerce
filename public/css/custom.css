@@ -5,3 +5,13 @@ body {
 #navbar-gap {
     margin-top: -4%;
 }
+
+.product-image {
+    width: 100%;
+}
+
+.wrap-product {
+    padding: 15px;
+    border: 1px #2e4b69 solid;
+    boder-radius: 4px;
+}

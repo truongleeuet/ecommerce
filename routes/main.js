@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const User = require('../models/user');
 const Product = require('../models/product');
-
+const Cart = require('../models/cart');
 
 function paginate(req, res, next) {
     var perPage= 9;
@@ -48,31 +48,49 @@ stream.on('close', function() {
 stream.on('error', function(err) {
     console.log(err);
 });
-router.get('/cart', (req, res, next) => {
+router.get('/cart', function(req, res, next) {
     Cart.findOne({ owner: req.user._id})
         .populate('items.item')
         .exec(function(err, foundCart) {
             res.render('main/cart', {
-                cart: foundCart
+                foundCart: foundCart,
+                message: req.flash('remove')
             })
-        })
-})
+        });
+});
+
 router.post('/product/:product_id', function(req, res, next) {
     Cart.findOne({ owner: req.user._id}, function(err, cart) {
+        console.log(cart);
         cart.items.push({
-            item: res.body.product_id,
-            price: parseFloat(req.body.price),
+            item: req.body.product_id,
+            price: parseFloat(req.body.priceValue),
             quantity: parseInt(req.body.quantity)
         });
 
         cart.total = (cart.total + parseFloat(req.body.priceValue)).toFixed(2);
-
+        console.log(cart);
         cart.save(function(err) {
             if (err) return next(err);
             return res.redirect('/cart');
         })
     })
 });
+
+router.post('/remove', function(req, res, next) {
+    Cart.findOne({ owner: req.user._id}, function(err, cart) {
+        cart.items.pull(String(req.body.item));
+
+        cart.total = (cart.total - parseFloat(req.body.price)).toFixed(2);
+
+        cart.save(function(err) {
+            if (err) return next(err);
+
+            req.flash('remove', 'Successfully removed');
+            res.redirect('/cart');
+        })
+    })
+})
 
 router.post('/search', function(req, res, next) {
     console.log(req.body.q);
@@ -99,7 +117,7 @@ router.get('/search', (req, res, next) => {
     }
 })
 
-router.get('/', (req, res, next) => {
+router.get('/', function(req, res, next) {
     if (req.user) {
         paginate(req, res, next);
     } else {
