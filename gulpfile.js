@@ -11,7 +11,7 @@ gulp.task('server', function() {
         pm2.start({
             name: 'ecommerce',
             script: 'app.js',
-            watch: ['models', 'app.js', 'views'],
+            watch: ['models', 'app.js'],
             // env: {
             //     'NODE_ENV': 'development'
             // }
