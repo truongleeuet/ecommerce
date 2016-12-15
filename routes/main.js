@@ -1,7 +1,9 @@
 const router = require('express').Router();
+const async = require('async');
 const User = require('../models/user');
 const Product = require('../models/product');
 const Cart = require('../models/cart');
+const stripe = require('stripe')('sk_test_PvsX9DqDoUYk7PUXlLpj3a88');
 
 function paginate(req, res, next) {
     var perPage= 9;
@@ -61,7 +63,6 @@ router.get('/cart', function(req, res, next) {
 
 router.post('/product/:product_id', function(req, res, next) {
     Cart.findOne({ owner: req.user._id}, function(err, cart) {
-        console.log(cart);
         cart.items.push({
             item: req.body.product_id,
             price: parseFloat(req.body.priceValue),
@@ -69,7 +70,6 @@ router.post('/product/:product_id', function(req, res, next) {
         });
 
         cart.total = (cart.total + parseFloat(req.body.priceValue)).toFixed(2);
-        console.log(cart);
         cart.save(function(err) {
             if (err) return next(err);
             return res.redirect('/cart');
@@ -77,21 +77,20 @@ router.post('/product/:product_id', function(req, res, next) {
     })
 });
 
+
 router.post('/remove', function(req, res, next) {
-    Cart.findOne({ owner: req.user._id}, function(err, cart) {
-        cart.items.pull(String(req.body.item));
+   Cart.findOne({ owner: req.user._id}, function(err, foundCart) {
+       foundCart.items.pull(String(req.body.item));
 
-        cart.total = (cart.total - parseFloat(req.body.price)).toFixed(2);
+       foundCart.total = (foundCart.total - parseFloat(req.body.price)).toFixed(2);
+       foundCart.save(function(err, found) {
+           if (err) return next(err);
 
-        cart.save(function(err) {
-            if (err) return next(err);
-
-            req.flash('remove', 'Successfully removed');
-            res.redirect('/cart');
-        })
-    })
-})
-
+           req.flash('remove', 'Successfully removed');
+           res.redirect('/cart');
+       })
+   })
+});
 router.post('/search', function(req, res, next) {
     console.log(req.body.q);
     res.redirect('/search?q=' + req.body.q);
@@ -153,4 +152,51 @@ router.get('/product/:id', (req, res, next) => {
     })
 })
 
+
+router.post('/payment', function(req, res, next) {
+    console.log('start stripe');
+    var stripeToken = req.body.stripeToken;
+    var currentCharges = Math.round(req.body.stripeMoney * 100)
+    stripe.customers.create({
+        source: stripeToken,
+    }).then(function(customer) {
+        return stripe.charges.create({
+            amount: currentCharges,
+            currency: 'usd',
+            customer: customer.id
+        });
+    }).then(function(charge) {
+        async.waterfall([
+            function(callback) {
+                Cart.findOne({ owner: req.user._id}, function(err, cart) {
+                    callback(err, cart);
+                })
+            },
+            function(cart, callback) {
+                User.findOne({ _id: req.user._id}, function(err, user) {
+                    if (user) {
+                        for (var i = 0, len = cart.items.length; i< len; i++) {
+                            user.history.push({
+                                item: cart.items[i].item,
+                                paid: cart.items[i].price
+                            })
+                        }
+
+                        user.save(function(err, user) {
+                            if (err) return next(err);
+                            callback(err, user);
+                        })
+                    }
+                })
+            },
+            function(user) {
+                Cart.update({ owner: user._id}, { $set: { items: [], total: 0 }}, function(err, updated) {
+                    if (updated) {
+                        res.redirect('/profile')
+                    }
+                })
+            },
+        ])
+    })
+})
 module.exports = router;
