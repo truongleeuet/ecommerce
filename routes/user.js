@@ -1,10 +1,19 @@
 const router = require('express').Router();
 const async = require('async');
+const nodemailer = require('nodemailer');
 const User = require('../models/user');
 const Cart = require('../models/cart');
 const passport = require('passport');
 const passportConf = require('../config/passport');
 
+
+const transporter = nodemailer.createTransport({
+    service: 'SendGrid',
+    auth: {
+        user: process.env.SENDGRID_USER,
+        pass: process.env.SENDGRID_PASSWORD
+    }
+})
 router.get('/login', (req, res, next) => {
     if (req.user) res.redirect('/');
     res.render('accounts/login', {
@@ -96,4 +105,57 @@ router.post('/edit-profile', function(req, res, next) {
     })
 })
 
+
+router.get('/forgot', function(req, res, next) {
+    res.render('accounts/forgot');
+});
+
+router.post('/forgot', function(req, res, next) {
+    async.waterfall([
+        function createRandomToken(done) {
+            crypto.randomBytes(16, (err, buf) => {
+                const token = buf.toString('hex');
+                done(err, token);
+            })
+        }, function setRandomToken(token, done) {
+            User.findOne({ email: req.body.email}, (err, user) => {
+                if (err) return done(err);
+                if (!user) {
+                    req.flash('errors', { msg: 'Account with that emails address does not  exist. '});
+                    res.redirect('/forgot');
+                }
+                user.passwordResetToken = token;
+                user.passwordResetExpires = Date.now + 3600;
+                user.save((err) => {
+                  done(err, token, user);
+                })
+            })
+        }, function sendFogotPasswordEmail(token, user, done) {
+            const transporter = nodemailer.createTransport({
+                service: 'SendGrid',
+                auth: {
+                    user: process.env.SENDGRID_USER,
+                    pass: process.env.SENDGRID_PASSWORD
+                }
+            });
+
+            const mailOptions = {
+                to: user.email,
+                from: 'truonglee.uet@gmail.com',
+                subject: 'Reset your password on ...',
+                text: `You are receiving this email because you ( or someone else) have requested the reset of the password for ypur account. \n\n
+                    Please click on the following link, or paste this into your browser to complete the process. \n\n 
+                    http://${ req.headers.host}/reset/${token} \n\n
+                    If you did not request this, please ignore this email and your password will remain unchanged .\n`
+            };
+            transporter.sendMail(mailOptions, (err) => {
+                req.flash('info', { msg: `An e-mail has been sent to ${user.email} with further instructions,` });
+                done(err)
+            })
+        }
+    ], (err) => {
+        if (err) { return next(err); }
+        res.redirect('/forgot');
+    })
+})
 module.exports = router;
